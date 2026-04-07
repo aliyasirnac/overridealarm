@@ -1,7 +1,12 @@
 package com.aliyasirnac.overridealarm.alarm
 
 import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -17,6 +22,8 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,15 +31,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aliyasirnac.overridealarm.model.ChallengeType
 import com.aliyasirnac.overridealarm.ui.theme.OverrideAlarmTheme
 import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.sqrt
+import kotlin.random.Random
 
 class AlarmActivity : ComponentActivity() {
 
@@ -40,6 +53,7 @@ class AlarmActivity : ComponentActivity() {
     private var alarmLabel: String = ""
     private var snoozeEnabled: Boolean = true
     private var snoozeMinutes: Int = 5
+    private var challengeTypeStr: String = "NONE"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +62,7 @@ class AlarmActivity : ComponentActivity() {
         alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: ""
         snoozeEnabled = intent.getBooleanExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, true)
         snoozeMinutes = intent.getIntExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, 5)
+        challengeTypeStr = intent.getStringExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE) ?: "NONE"
 
         // Wake up screen and show over lock screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -67,12 +82,19 @@ class AlarmActivity : ComponentActivity() {
 
         enableEdgeToEdge()
 
+        val challengeType = try {
+            ChallengeType.valueOf(challengeTypeStr)
+        } catch (_: Exception) {
+            ChallengeType.NONE
+        }
+
         setContent {
             OverrideAlarmTheme {
                 AlarmScreen(
                     label = alarmLabel,
                     snoozeEnabled = snoozeEnabled,
                     snoozeMinutes = snoozeMinutes,
+                    challengeType = challengeType,
                     onDismiss = { dismissAlarm() },
                     onSnooze = { snoozeAlarm() }
                 )
@@ -109,9 +131,12 @@ private fun AlarmScreen(
     label: String,
     snoozeEnabled: Boolean,
     snoozeMinutes: Int,
+    challengeType: ChallengeType,
     onDismiss: () -> Unit,
     onSnooze: () -> Unit
 ) {
+    var challengeCompleted by remember { mutableStateOf(challengeType == ChallengeType.NONE) }
+
     var currentInstant by remember { mutableStateOf(Clock.System.now()) }
 
     LaunchedEffect(Unit) {
@@ -207,6 +232,16 @@ private fun AlarmScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Show challenge UI if not completed
+                if (!challengeCompleted) {
+                    when (challengeType) {
+                        ChallengeType.MATH -> MathChallenge { challengeCompleted = true }
+                        ChallengeType.SHAKE -> ShakeChallenge { challengeCompleted = true }
+                        ChallengeType.TYPING -> TypingChallenge { challengeCompleted = true }
+                        ChallengeType.NONE -> { /* already completed */ }
+                    }
+                }
+
                 if (snoozeEnabled) {
                     TextButton(
                         onClick = onSnooze,
@@ -224,7 +259,16 @@ private fun AlarmScreen(
                     }
                 }
 
-                SwipeToDismissButton(onDismiss = onDismiss)
+                if (challengeCompleted) {
+                    SwipeToDismissButton(onDismiss = onDismiss)
+                } else {
+                    Text(
+                        text = "Kapatmak için görevi tamamlayın ⬆️",
+                        color = Color.White.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -232,10 +276,304 @@ private fun AlarmScreen(
     }
 }
 
+// ─── Math Challenge ───────────────────────────────────────────────
+@Composable
+private fun MathChallenge(onSolved: () -> Unit) {
+    val a = remember { Random.nextInt(10, 99) }
+    val b = remember { Random.nextInt(10, 99) }
+    val correctAnswer = remember { a + b }
+    var userAnswer by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "🧮 Matematik Görevi",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "$a + $b = ?",
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Light,
+                color = Color(0xFF93C5FD)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = userAnswer,
+                onValueChange = {
+                    userAnswer = it.filter { c -> c.isDigit() }
+                    showError = false
+                },
+                placeholder = { Text("Cevabınız", color = Color.White.copy(alpha = 0.4f)) },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (userAnswer.toIntOrNull() == correctAnswer) {
+                            onSolved()
+                        } else {
+                            showError = true
+                            userAnswer = ""
+                        }
+                    }
+                ),
+                modifier = Modifier.fillMaxWidth(0.5f),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF60A5FA),
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = Color(0xFF60A5FA)
+                ),
+                textStyle = LocalTextStyle.current.copy(
+                    textAlign = TextAlign.Center,
+                    fontSize = 24.sp
+                )
+            )
+            if (showError) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "❌ Yanlış, tekrar deneyin!",
+                    color = Color(0xFFFCA5A5),
+                    fontSize = 14.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    if (userAnswer.toIntOrNull() == correctAnswer) {
+                        onSolved()
+                    } else {
+                        showError = true
+                        userAnswer = ""
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Kontrol Et", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+// ─── Shake Challenge ──────────────────────────────────────────────
+@Composable
+private fun ShakeChallenge(onSolved: () -> Unit) {
+    val requiredShakes = 15
+    var shakeCount by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val progress = (shakeCount.toFloat() / requiredShakes).coerceIn(0f, 1f)
+
+    DisposableEffect(Unit) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        var lastMagnitude = 0f
+        var lastShakeTime = 0L
+
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                val x = event.values[0]
+                val y = event.values[1]
+                val z = event.values[2]
+                val magnitude = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+                val delta = magnitude - lastMagnitude
+                lastMagnitude = magnitude
+
+                val now = System.currentTimeMillis()
+                if (delta > 6f && now - lastShakeTime > 300) {
+                    lastShakeTime = now
+                    shakeCount++
+                    if (shakeCount >= requiredShakes) {
+                        onSolved()
+                    }
+                }
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        accelerometer?.let {
+            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI)
+        }
+
+        onDispose {
+            sensorManager.unregisterListener(listener)
+        }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "📱 Sallama Görevi",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Telefonunu $requiredShakes kez salla!",
+                fontSize = 16.sp,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Progress indicator
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(100.dp),
+                    color = Color(0xFF34D399),
+                    trackColor = Color.White.copy(alpha = 0.15f),
+                    strokeWidth = 8.dp
+                )
+                Text(
+                    text = "$shakeCount/$requiredShakes",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF34D399)
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = if (shakeCount > 0) "Devam et! 💪" else "Başla! 🏃",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+// ─── Typing Challenge ─────────────────────────────────────────────
+@Composable
+private fun TypingChallenge(onSolved: () -> Unit) {
+    val phrases = listOf(
+        "günaydın dünya",
+        "kahve zamanı",
+        "yeni bir gün",
+        "haydi kalk artık",
+        "bugün güzel olacak"
+    )
+    val targetPhrase = remember { phrases[Random.nextInt(phrases.size)] }
+    var userInput by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "⌨️ Yazma Görevi",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Aşağıdaki ifadeyi yazın:",
+                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // The phrase to type
+            Surface(
+                color = Color(0xFF1E293B),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "\"$targetPhrase\"",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFFBBF24),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = userInput,
+                onValueChange = {
+                    userInput = it
+                    showError = false
+                },
+                placeholder = { Text("Yazın...", color = Color.White.copy(alpha = 0.4f)) },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (userInput.trim().lowercase() == targetPhrase.lowercase()) {
+                            onSolved()
+                        } else {
+                            showError = true
+                        }
+                    }
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFFBBF24),
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = Color(0xFFFBBF24)
+                )
+            )
+            if (showError) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "❌ Eşleşmiyor, tekrar deneyin!",
+                    color = Color(0xFFFCA5A5),
+                    fontSize = 14.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    if (userInput.trim().lowercase() == targetPhrase.lowercase()) {
+                        onSolved()
+                    } else {
+                        showError = true
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFBBF24)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Kontrol Et", fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+        }
+    }
+}
+
+// ─── Swipe to Dismiss ─────────────────────────────────────────────
 @Composable
 private fun SwipeToDismissButton(onDismiss: () -> Unit) {
     var offsetX by remember { mutableStateOf(0f) }
-    val maxDrag = 220f // approx dp to px
+    val maxDrag = 220f
 
     Box(
         modifier = Modifier
@@ -280,6 +618,7 @@ private fun SwipeToDismissButton(onDismiss: () -> Unit) {
     }
 }
 
+// ─── Pulsing Bell ─────────────────────────────────────────────────
 @Composable
 private fun PulsingBell() {
     val infiniteTransition = rememberInfiniteTransition(label = "bell_pulse")
@@ -303,7 +642,6 @@ private fun PulsingBell() {
     )
 
     Box(contentAlignment = Alignment.Center) {
-        // Glow ring
         Box(
             modifier = Modifier
                 .size(120.dp)

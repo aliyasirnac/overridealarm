@@ -4,6 +4,14 @@ import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
 @Serializable
+enum class ChallengeType {
+    NONE,
+    MATH,
+    SHAKE,
+    TYPING
+}
+
+@Serializable
 data class Alarm(
     val id: Long = Random.nextLong(0, Long.MAX_VALUE),
     val hour: Int,
@@ -13,7 +21,8 @@ data class Alarm(
     val repeatDays: Set<Int> = emptySet(), // 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun (ISO)
     val vibrate: Boolean = true,
     val snoozeEnabled: Boolean = true,
-    val snoozeMinutes: Int = 5
+    val snoozeMinutes: Int = 5,
+    val challengeType: ChallengeType = ChallengeType.NONE
 )
 
 fun Alarm.formattedTimeParts(): Pair<String, String> {

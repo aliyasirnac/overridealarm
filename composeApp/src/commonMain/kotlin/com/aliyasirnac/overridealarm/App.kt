@@ -3,6 +3,7 @@ package com.aliyasirnac.overridealarm
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aliyasirnac.overridealarm.model.Alarm
 import com.aliyasirnac.overridealarm.repository.AlarmRepository
 import com.aliyasirnac.overridealarm.repository.AlarmScheduler
 import com.aliyasirnac.overridealarm.repository.InMemoryAlarmRepository
@@ -18,6 +19,7 @@ val LocalAlarmScheduler = compositionLocalOf<AlarmScheduler> { NoOpAlarmSchedule
 sealed class Screen {
     data object AlarmList : Screen()
     data object AddAlarm : Screen()
+    data class EditAlarm(val alarm: Alarm) : Screen()
 }
 
 @Composable
@@ -32,17 +34,27 @@ fun App(
     var currentScreen by remember { mutableStateOf<Screen>(Screen.AlarmList) }
 
     OverrideAlarmTheme {
-        when (currentScreen) {
+        when (val screen = currentScreen) {
             is Screen.AlarmList -> AlarmListScreen(
                 alarms = alarms,
                 onAddAlarm = { currentScreen = Screen.AddAlarm },
                 onToggleAlarm = { viewModel.toggleAlarm(it) },
                 onDeleteAlarm = { viewModel.deleteAlarm(it) },
+                onEditAlarm = { currentScreen = Screen.EditAlarm(it) },
                 permissionBanner = permissionBanner
             )
             is Screen.AddAlarm -> AddAlarmScreen(
+                existingAlarm = null,
                 onSave = { alarm ->
                     viewModel.addAlarm(alarm)
+                    currentScreen = Screen.AlarmList
+                },
+                onCancel = { currentScreen = Screen.AlarmList }
+            )
+            is Screen.EditAlarm -> AddAlarmScreen(
+                existingAlarm = screen.alarm,
+                onSave = { alarm ->
+                    viewModel.updateAlarm(alarm)
                     currentScreen = Screen.AlarmList
                 },
                 onCancel = { currentScreen = Screen.AlarmList }

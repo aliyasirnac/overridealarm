@@ -49,4 +49,13 @@ class AlarmViewModel(
         }
         refresh()
     }
+
+    fun updateAlarm(alarm: Alarm) {
+        repository.updateAlarm(alarm)
+        if (alarm.isEnabled) {
+            scheduler.cancelAlarm(alarm)
+            scheduler.scheduleAlarm(alarm)
+        }
+        refresh()
+    }
 }

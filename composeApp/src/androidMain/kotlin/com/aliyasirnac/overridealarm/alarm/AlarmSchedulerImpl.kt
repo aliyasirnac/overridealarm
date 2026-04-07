@@ -40,6 +40,7 @@ class AlarmSchedulerImpl(private val context: Context) : AlarmScheduler {
             putExtra(AlarmReceiver.EXTRA_VIBRATE, alarm.vibrate)
             putExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, alarm.snoozeEnabled)
             putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, alarm.snoozeMinutes)
+            putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, alarm.challengeType.name)
         }
         return PendingIntent.getBroadcast(
             context,

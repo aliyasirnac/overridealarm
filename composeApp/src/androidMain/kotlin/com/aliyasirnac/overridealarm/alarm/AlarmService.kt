@@ -35,6 +35,7 @@ class AlarmService : Service() {
     private var currentAlarmLabel: String = ""
     private var currentSnoozeEnabled: Boolean = true
     private var currentSnoozeMinutes: Int = 5
+    private var currentChallengeType: String = "NONE"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -61,6 +62,7 @@ class AlarmService : Service() {
         val vibrate = intent?.getBooleanExtra(AlarmReceiver.EXTRA_VIBRATE, true) ?: true
         currentSnoozeEnabled = intent?.getBooleanExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, true) ?: true
         currentSnoozeMinutes = intent?.getIntExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, 5) ?: 5
+        currentChallengeType = intent?.getStringExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE) ?: "NONE"
 
         // Acquire CPU wake lock so alarm runs even if screen is off
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
@@ -147,6 +149,7 @@ class AlarmService : Service() {
             putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, currentAlarmLabel)
             putExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, currentSnoozeEnabled)
             putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, currentSnoozeMinutes)
+            putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, currentChallengeType)
         }
         startActivity(activityIntent)
     }

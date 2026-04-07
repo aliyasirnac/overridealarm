@@ -25,6 +25,7 @@ fun AlarmListScreen(
     onAddAlarm: () -> Unit,
     onToggleAlarm: (Alarm) -> Unit,
     onDeleteAlarm: (Alarm) -> Unit,
+    onEditAlarm: (Alarm) -> Unit,
     permissionBanner: (@Composable () -> Unit)? = null
 ) {
     var currentInstant by remember { mutableStateOf(Clock.System.now()) }
@@ -89,7 +90,8 @@ fun AlarmListScreen(
                     AlarmCard(
                         alarm = alarm,
                         onToggle = { onToggleAlarm(alarm) },
-                        onDelete = { onDeleteAlarm(alarm) }
+                        onDelete = { onDeleteAlarm(alarm) },
+                        onEdit = { onEditAlarm(alarm) }
                     )
                 }
             }

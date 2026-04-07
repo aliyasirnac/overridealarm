@@ -1,5 +1,6 @@
 package com.aliyasirnac.overridealarm.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -12,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aliyasirnac.overridealarm.model.Alarm
 import com.aliyasirnac.overridealarm.model.ALL_DAYS
+import com.aliyasirnac.overridealarm.model.ChallengeType
 import com.aliyasirnac.overridealarm.model.DAY_LABELS
 import com.aliyasirnac.overridealarm.model.formattedTimeParts
 
@@ -20,6 +22,7 @@ fun AlarmCard(
     alarm: Alarm,
     onToggle: () -> Unit,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val (timeStr, amPm) = alarm.formattedTimeParts()
@@ -37,7 +40,8 @@ fun AlarmCard(
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable { onEdit() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = animatedContainerColor
@@ -101,24 +105,51 @@ fun AlarmCard(
                 }
             }
 
-            if (alarm.repeatDays.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ALL_DAYS.forEach { day ->
-                        DayBadge(
-                            label = DAY_LABELS[day] ?: "",
-                            isActive = day in alarm.repeatDays,
-                            isAlarmEnabled = alarm.isEnabled
+            // Challenge badge + repeat days row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (alarm.repeatDays.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        ALL_DAYS.forEach { day ->
+                            DayBadge(
+                                label = DAY_LABELS[day] ?: "",
+                                isActive = day in alarm.repeatDays,
+                                isAlarmEnabled = alarm.isEnabled
+                            )
+                        }
+                    }
+                } else if (!alarm.isEnabled) {
+                    Text(
+                        text = "Kapalı",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                if (alarm.challengeType != ChallengeType.NONE) {
+                    val (emoji, label) = when (alarm.challengeType) {
+                        ChallengeType.MATH -> "🧮" to "Matematik"
+                        ChallengeType.SHAKE -> "📱" to "Sallama"
+                        ChallengeType.TYPING -> "⌨️" to "Yazma"
+                        else -> "" to ""
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            text = "$emoji $label",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
-            } else if (!alarm.isEnabled) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Kapalı",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
             }
         }
     }
