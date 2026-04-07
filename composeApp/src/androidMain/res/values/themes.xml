@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme — Compose handles all UI, this just sets window background to dark -->
+    <style name="Theme.OverrideAlarm" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0A0A0F</item>
+        <item name="android:statusBarColor">#00000000</item>
+        <item name="android:navigationBarColor">#00000000</item>
+    </style>
+</resources>
