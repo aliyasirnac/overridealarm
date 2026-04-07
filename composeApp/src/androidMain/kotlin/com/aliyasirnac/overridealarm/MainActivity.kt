@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.provider.OpenableColumns
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,6 +32,8 @@ import androidx.core.content.ContextCompat
 import com.aliyasirnac.overridealarm.alarm.AlarmSchedulerImpl
 import com.aliyasirnac.overridealarm.repository.AlarmRepositoryImpl
 import com.aliyasirnac.overridealarm.ui.theme.OverrideAlarmTheme
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : ComponentActivity() {
 
@@ -38,12 +41,13 @@ class MainActivity : ComponentActivity() {
     private var ringtoneCallback: ((uri: String?, name: String?) -> Unit)? = null
 
     private lateinit var ringtonePickerLauncher: ActivityResultLauncher<Intent>
+    private lateinit var customFilePickerLauncher: ActivityResultLauncher<Array<String>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Register ringtone picker launcher
+        // Register ringtone picker launcher (System sounds)
         ringtonePickerLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -56,6 +60,33 @@ class MainActivity : ComponentActivity() {
                 ringtoneCallback?.invoke(ringtoneUri.toString(), name)
             } else {
                 // User selected "Silent" or cancelled
+                ringtoneCallback?.invoke(null, null)
+            }
+            ringtoneCallback = null
+        }
+
+        // Register custom file picker launcher
+        customFilePickerLauncher = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                try {
+                    // Copy file to internal storage to ensure persistent access
+                    val fileName = getFileName(uri) ?: "ozel_ses_${System.currentTimeMillis()}"
+                    val internalUri = copyFileToInternalStorage(uri, fileName)
+                    
+                    if (internalUri != null) {
+                        ringtoneCallback?.invoke(internalUri.toString(), fileName)
+                    } else {
+                        // Fallback if copy fails
+                        ringtoneCallback?.invoke(uri.toString(), fileName)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // Fallback to original URI if copy fails
+                    ringtoneCallback?.invoke(uri.toString(), "Özel Ses")
+                }
+            } else {
                 ringtoneCallback?.invoke(null, null)
             }
             ringtoneCallback = null
@@ -86,6 +117,8 @@ class MainActivity : ComponentActivity() {
                     val context = LocalContext.current
                     var showExactAlarmDialog by remember { mutableStateOf(false) }
                     var showBatteryDialog by remember { mutableStateOf(false) }
+                    var showSoundPickerDialog by remember { mutableStateOf(false) }
+                    var currentCallback by remember { mutableStateOf<((String?, String?) -> Unit)?>(null) }
 
                     LaunchedEffect(Unit) {
                         // Check SCHEDULE_EXACT_ALARM permission (Android 12+)
@@ -142,20 +175,39 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    if (showSoundPickerDialog) {
+                        SoundSourceDialog(
+                            onSelectSystem = {
+                                showSoundPickerDialog = false
+                                ringtoneCallback = currentCallback
+                                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_RINGTONE)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Alarm Sesi Seçin")
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                    putExtra(
+                                        RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI,
+                                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                                    )
+                                }
+                                ringtonePickerLauncher.launch(intent)
+                            },
+                            onSelectFile = {
+                                showSoundPickerDialog = false
+                                ringtoneCallback = currentCallback
+                                customFilePickerLauncher.launch(arrayOf("audio/*"))
+                            },
+                            onDismiss = {
+                                showSoundPickerDialog = false
+                                currentCallback = null
+                            }
+                        )
+                    }
+
                     App(
                         onPickRingtone = { callback ->
-                            ringtoneCallback = callback
-                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_RINGTONE)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Alarm Sesi Seçin")
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                putExtra(
-                                    RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI,
-                                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                                )
-                            }
-                            ringtonePickerLauncher.launch(intent)
+                            currentCallback = callback
+                            showSoundPickerDialog = true
                         }
                     )
                 }
@@ -163,9 +215,95 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun getFileName(uri: Uri): String? {
+        var result: String? = null
+        if (uri.scheme == "content") {
+            val cursor = contentResolver.query(uri, null, null, null, null)
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index != -1) {
+                        result = cursor.getString(index)
+                    }
+                }
+            } finally {
+                cursor?.close()
+            }
+        }
+        if (result == null) {
+            result = uri.path
+            val cut = result?.lastIndexOf('/') ?: -1
+            if (cut != -1) {
+                result = result?.substring(cut + 1)
+            }
+        }
+        return result
+    }
+
+    private fun copyFileToInternalStorage(uri: Uri, fileName: String): Uri? {
+        return try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return null
+            val dir = File(filesDir, "custom_sounds")
+            if (!dir.exists()) dir.mkdirs()
+            val outputFile = File(dir, fileName)
+            val outputStream = FileOutputStream(outputFile)
+            
+            inputStream.use { input ->
+                outputStream.use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Uri.fromFile(outputFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     companion object {
         private const val REQUEST_NOTIFICATION_PERMISSION = 100
     }
+}
+
+@Composable
+private fun SoundSourceDialog(
+    onSelectSystem: () -> Unit,
+    onSelectFile: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ses Kaynağı Seçin", fontWeight = FontWeight.Bold) },
+        text = { Text("Alarm sesini nereden seçmek istersiniz?") },
+        confirmButton = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onSelectSystem,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Sistem Sesleri")
+                }
+                Button(
+                    onClick = onSelectFile,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Text("Dosyalarımdan Seç")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("İptal")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp)
+    )
 }
 
 @Composable

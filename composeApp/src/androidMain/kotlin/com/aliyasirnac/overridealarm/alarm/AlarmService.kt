@@ -157,6 +157,8 @@ class AlarmService : Service() {
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             }
 
+            Log.d(TAG, "Playing alarm sound from: $alarmUri")
+
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
@@ -165,7 +167,13 @@ class AlarmService : Service() {
                         .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
                         .build()
                 )
-                setDataSource(applicationContext, alarmUri)
+                try {
+                    setDataSource(applicationContext, alarmUri)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to setDataSource with $alarmUri, falling back to default", e)
+                    val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    setDataSource(applicationContext, defaultUri)
+                }
                 isLooping = true
                 prepare()
                 audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
