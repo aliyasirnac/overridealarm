@@ -24,7 +24,8 @@ sealed class Screen {
 
 @Composable
 fun App(
-    permissionBanner: (@Composable () -> Unit)? = null
+    permissionBanner: (@Composable () -> Unit)? = null,
+    onPickRingtone: ((callback: (uri: String?, name: String?) -> Unit) -> Unit) = {}
 ) {
     val repository = LocalAlarmRepository.current
     val scheduler = LocalAlarmScheduler.current
@@ -49,7 +50,8 @@ fun App(
                     viewModel.addAlarm(alarm)
                     currentScreen = Screen.AlarmList
                 },
-                onCancel = { currentScreen = Screen.AlarmList }
+                onCancel = { currentScreen = Screen.AlarmList },
+                onPickRingtone = onPickRingtone
             )
             is Screen.EditAlarm -> AddAlarmScreen(
                 existingAlarm = screen.alarm,
@@ -57,7 +59,8 @@ fun App(
                     viewModel.updateAlarm(alarm)
                     currentScreen = Screen.AlarmList
                 },
-                onCancel = { currentScreen = Screen.AlarmList }
+                onCancel = { currentScreen = Screen.AlarmList },
+                onPickRingtone = onPickRingtone
             )
         }
     }

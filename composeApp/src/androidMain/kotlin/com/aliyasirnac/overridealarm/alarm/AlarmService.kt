@@ -36,6 +36,7 @@ class AlarmService : Service() {
     private var currentSnoozeEnabled: Boolean = true
     private var currentSnoozeMinutes: Int = 5
     private var currentChallengeType: String = "NONE"
+    private var currentRingtoneUri: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -63,6 +64,7 @@ class AlarmService : Service() {
         currentSnoozeEnabled = intent?.getBooleanExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, true) ?: true
         currentSnoozeMinutes = intent?.getIntExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, 5) ?: 5
         currentChallengeType = intent?.getStringExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE) ?: "NONE"
+        currentRingtoneUri = intent?.getStringExtra(AlarmReceiver.EXTRA_RINGTONE_URI)
 
         // Acquire CPU wake lock so alarm runs even if screen is off
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
@@ -96,8 +98,12 @@ class AlarmService : Service() {
 
         // Play alarm sound using STREAM_ALARM (bypasses DND alarm exception)
         try {
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            val alarmUri = if (!currentRingtoneUri.isNullOrBlank()) {
+                android.net.Uri.parse(currentRingtoneUri)
+            } else {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            }
 
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(

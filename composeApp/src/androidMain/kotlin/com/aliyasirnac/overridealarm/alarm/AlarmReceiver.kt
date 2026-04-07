@@ -14,6 +14,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val snoozeEnabled = intent.getBooleanExtra(EXTRA_SNOOZE_ENABLED, true)
         val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 5)
         val challengeType = intent.getStringExtra(EXTRA_CHALLENGE_TYPE) ?: "NONE"
+        val ringtoneUri = intent.getStringExtra(EXTRA_RINGTONE_URI)
 
         val serviceIntent = Intent(context, AlarmService::class.java).apply {
             putExtra(EXTRA_ALARM_ID, alarmId)
@@ -22,6 +23,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(EXTRA_SNOOZE_ENABLED, snoozeEnabled)
             putExtra(EXTRA_SNOOZE_MINUTES, snoozeMinutes)
             putExtra(EXTRA_CHALLENGE_TYPE, challengeType)
+            putExtra(EXTRA_RINGTONE_URI, ringtoneUri)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -38,5 +40,6 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_SNOOZE_ENABLED = "alarm_snooze_enabled"
         const val EXTRA_SNOOZE_MINUTES = "alarm_snooze_minutes"
         const val EXTRA_CHALLENGE_TYPE = "alarm_challenge_type"
+        const val EXTRA_RINGTONE_URI = "alarm_ringtone_uri"
     }
 }

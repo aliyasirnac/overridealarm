@@ -1,6 +1,7 @@
 package com.aliyasirnac.overridealarm.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aliyasirnac.overridealarm.model.Alarm
@@ -22,7 +24,8 @@ import com.aliyasirnac.overridealarm.model.DAY_LABELS
 fun AddAlarmScreen(
     existingAlarm: Alarm?,
     onSave: (Alarm) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onPickRingtone: ((uri: String?, name: String?) -> Unit) -> Unit = {}
 ) {
     val isEditing = existingAlarm != null
 
@@ -31,6 +34,8 @@ fun AddAlarmScreen(
     var vibrate by remember { mutableStateOf(existingAlarm?.vibrate ?: true) }
     var snoozeEnabled by remember { mutableStateOf(existingAlarm?.snoozeEnabled ?: true) }
     var challengeType by remember { mutableStateOf(existingAlarm?.challengeType ?: ChallengeType.NONE) }
+    var ringtoneUri by remember { mutableStateOf(existingAlarm?.ringtoneUri) }
+    var ringtoneName by remember { mutableStateOf(existingAlarm?.ringtoneName) }
 
     val timePickerState = rememberTimePickerState(
         initialHour = existingAlarm?.hour ?: 7,
@@ -66,7 +71,9 @@ fun AddAlarmScreen(
                                     vibrate = vibrate,
                                     snoozeEnabled = snoozeEnabled,
                                     isEnabled = existingAlarm?.isEnabled ?: true,
-                                    challengeType = challengeType
+                                    challengeType = challengeType,
+                                    ringtoneUri = ringtoneUri,
+                                    ringtoneName = ringtoneName
                                 )
                             )
                         },
@@ -135,6 +142,56 @@ fun AddAlarmScreen(
             )
 
             Spacer(modifier = Modifier.height(20.dp))
+
+            // Alarm Sound selector
+            SectionCard(title = "Alarm Sesi") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onPickRingtone { uri, name ->
+                                ringtoneUri = uri
+                                ringtoneName = name
+                            }
+                        },
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🔔",
+                            fontSize = 24.sp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = ringtoneName ?: "Varsayılan alarm sesi",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "Değiştirmek için dokunun",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = "▶",
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Repeat days
             SectionCard(title = "Tekrar") {

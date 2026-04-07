@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +14,8 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -31,9 +34,32 @@ import com.aliyasirnac.overridealarm.ui.theme.OverrideAlarmTheme
 
 class MainActivity : ComponentActivity() {
 
+    // Callback to return ringtone selection to the Compose UI
+    private var ringtoneCallback: ((uri: String?, name: String?) -> Unit)? = null
+
+    private lateinit var ringtonePickerLauncher: ActivityResultLauncher<Intent>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        // Register ringtone picker launcher
+        ringtonePickerLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            val ringtoneUri: Uri? = result.data
+                ?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+
+            if (ringtoneUri != null) {
+                val ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
+                val name = ringtone?.getTitle(this) ?: "Bilinmeyen ses"
+                ringtoneCallback?.invoke(ringtoneUri.toString(), name)
+            } else {
+                // User selected "Silent" or cancelled
+                ringtoneCallback?.invoke(null, null)
+            }
+            ringtoneCallback = null
+        }
 
         // Request POST_NOTIFICATIONS permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -116,7 +142,22 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    App()
+                    App(
+                        onPickRingtone = { callback ->
+                            ringtoneCallback = callback
+                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_RINGTONE)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Alarm Sesi Seçin")
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                putExtra(
+                                    RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI,
+                                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                                )
+                            }
+                            ringtonePickerLauncher.launch(intent)
+                        }
+                    )
                 }
             }
         }

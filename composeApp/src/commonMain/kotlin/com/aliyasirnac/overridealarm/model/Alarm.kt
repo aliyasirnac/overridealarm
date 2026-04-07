@@ -22,7 +22,9 @@ data class Alarm(
     val vibrate: Boolean = true,
     val snoozeEnabled: Boolean = true,
     val snoozeMinutes: Int = 5,
-    val challengeType: ChallengeType = ChallengeType.NONE
+    val challengeType: ChallengeType = ChallengeType.NONE,
+    val ringtoneUri: String? = null,       // null = system default alarm tone
+    val ringtoneName: String? = null       // display name for the selected tone
 )
 
 fun Alarm.formattedTimeParts(): Pair<String, String> {
