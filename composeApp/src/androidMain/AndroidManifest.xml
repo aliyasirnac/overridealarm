@@ -52,7 +52,10 @@
             android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
-            android:excludeFromRecents="true"/>
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=".alarm"
+            android:noHistory="true"/>
 
         <!-- Foreground service that plays the alarm sound -->
         <service

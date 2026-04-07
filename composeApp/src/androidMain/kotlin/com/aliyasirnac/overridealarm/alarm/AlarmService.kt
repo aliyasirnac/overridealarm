@@ -141,17 +141,26 @@ class AlarmService : Service() {
         if (vibrate) startVibration()
 
         // Launch full-screen AlarmActivity
-        val activityIntent = Intent(this, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(AlarmReceiver.EXTRA_ALARM_ID, currentAlarmId)
-            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, currentAlarmLabel)
-            putExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, currentSnoozeEnabled)
-            putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, currentSnoozeMinutes)
-            putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, currentChallengeType)
+        // On Android 10+ startActivity from service is restricted,
+        // so we also rely on the notification's fullScreenIntent.
+        // The notification is started as foreground above, which triggers fullScreenIntent.
+        try {
+            val activityIntent = Intent(this, AlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(AlarmReceiver.EXTRA_ALARM_ID, currentAlarmId)
+                putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, currentAlarmLabel)
+                putExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, currentSnoozeEnabled)
+                putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, currentSnoozeMinutes)
+                putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, currentChallengeType)
+            }
+            startActivity(activityIntent)
+        } catch (e: Exception) {
+            // On Android 10+ this may fail when phone is locked;
+            // the fullScreenIntent on the notification will handle it.
+            e.printStackTrace()
         }
-        startActivity(activityIntent)
     }
 
     private fun startVibration() {
@@ -209,11 +218,14 @@ class AlarmService : Service() {
 
     private fun buildNotification(label: String): Notification {
         val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, currentAlarmId)
             putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, currentAlarmLabel)
             putExtra(AlarmReceiver.EXTRA_SNOOZE_ENABLED, currentSnoozeEnabled)
             putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, currentSnoozeMinutes)
+            putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, currentChallengeType)
         }
         val fullScreenPi = PendingIntent.getActivity(
             this, 0, fullScreenIntent,
@@ -223,6 +235,16 @@ class AlarmService : Service() {
         val dismissPi = PendingIntent.getService(
             this, 1,
             Intent(this, AlarmService::class.java).apply { action = ACTION_DISMISS },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val snoozePi = PendingIntent.getService(
+            this, 2,
+            Intent(this, AlarmService::class.java).apply {
+                action = ACTION_SNOOZE
+                putExtra(AlarmReceiver.EXTRA_ALARM_ID, currentAlarmId)
+                putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, currentSnoozeMinutes)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -236,6 +258,11 @@ class AlarmService : Service() {
             .setAutoCancel(false)
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .addAction(
+                android.R.drawable.ic_lock_idle_alarm,
+                "Ertele ($currentSnoozeMinutes dk)",
+                snoozePi
+            )
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Kapat",
