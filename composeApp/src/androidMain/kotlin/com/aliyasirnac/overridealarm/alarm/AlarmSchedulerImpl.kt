@@ -42,6 +42,11 @@ class AlarmSchedulerImpl(private val context: Context) : AlarmScheduler {
             putExtra(AlarmReceiver.EXTRA_SNOOZE_MINUTES, alarm.snoozeMinutes)
             putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, alarm.challengeType.name)
             putExtra(AlarmReceiver.EXTRA_RINGTONE_URI, alarm.ringtoneUri)
+            putExtra(AlarmReceiver.EXTRA_FORCE_SPEAKER, alarm.forceSpeaker)
+            putExtra(AlarmReceiver.EXTRA_FLASH_STROBE, alarm.flashStrobe)
+            putExtra(AlarmReceiver.EXTRA_TTS_ENABLED, alarm.ttsEnabled)
+            putExtra(AlarmReceiver.EXTRA_TTS_MESSAGE, alarm.ttsMessage)
+            putExtra(AlarmReceiver.EXTRA_WAKEUP_CHECK, alarm.wakeupCheck)
         }
         return PendingIntent.getBroadcast(
             context,

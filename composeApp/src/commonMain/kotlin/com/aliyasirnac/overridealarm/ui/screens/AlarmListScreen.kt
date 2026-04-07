@@ -1,5 +1,7 @@
 package com.aliyasirnac.overridealarm.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
 import com.aliyasirnac.overridealarm.model.Alarm
 import com.aliyasirnac.overridealarm.ui.components.AlarmCard
 import kotlinx.coroutines.delay
@@ -26,7 +29,8 @@ fun AlarmListScreen(
     onToggleAlarm: (Alarm) -> Unit,
     onDeleteAlarm: (Alarm) -> Unit,
     onEditAlarm: (Alarm) -> Unit,
-    permissionBanner: (@Composable () -> Unit)? = null
+    permissionBanner: (@Composable () -> Unit)? = null,
+    onOpenSettings: () -> Unit = {}
 ) {
     var currentInstant by remember { mutableStateOf(Clock.System.now()) }
 
@@ -62,12 +66,23 @@ fun AlarmListScreen(
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
             item {
-                ClockHeader(
-                    hour = localNow.hour,
-                    minute = localNow.minute,
-                    dayOfWeek = localNow.dayOfWeek.name,
-                    activeAlarmCount = alarms.count { it.isEnabled }
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    ClockHeader(
+                        hour = localNow.hour,
+                        minute = localNow.minute,
+                        dayOfWeek = localNow.dayOfWeek.name,
+                        activeAlarmCount = alarms.count { it.isEnabled }
+                    )
+                    // Settings button top-right
+                    Text(
+                        text = "⚙️",
+                        fontSize = 24.sp,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 50.dp, end = 20.dp)
+                            .clickable { onOpenSettings() }
+                    )
+                }
             }
 
             permissionBanner?.let {
@@ -87,12 +102,64 @@ fun AlarmListScreen(
                     )
                 }
                 items(alarms, key = { it.id }) { alarm ->
-                    AlarmCard(
-                        alarm = alarm,
-                        onToggle = { onToggleAlarm(alarm) },
-                        onDelete = { onDeleteAlarm(alarm) },
-                        onEdit = { onEditAlarm(alarm) }
-                    )
+                    var isVisible by remember { mutableStateOf(true) }
+                    var showDeleteDialog by remember { mutableStateOf(false) }
+
+                    // Confirmation dialog
+                    if (showDeleteDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showDeleteDialog = false },
+                            title = { Text("Alarmı Sil") },
+                            text = {
+                                Text(
+                                    "Bu alarmı silmek istediğinize emin misiniz?",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showDeleteDialog = false
+                                        isVisible = false
+                                    }
+                                ) {
+                                    Text("Sil", color = MaterialTheme.colorScheme.error)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDeleteDialog = false }) {
+                                    Text("İptal")
+                                }
+                            }
+                        )
+                    }
+
+                    // Animated card removal
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        exit = shrinkVertically(
+                            animationSpec = tween(300)
+                        ) + fadeOut(animationSpec = tween(200)) +
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(300)
+                                )
+                    ) {
+                        AlarmCard(
+                            alarm = alarm,
+                            onToggle = { onToggleAlarm(alarm) },
+                            onDelete = { showDeleteDialog = true },
+                            onEdit = { onEditAlarm(alarm) }
+                        )
+                    }
+
+                    // Actually delete after animation finishes
+                    LaunchedEffect(isVisible) {
+                        if (!isVisible) {
+                            kotlinx.coroutines.delay(350)
+                            onDeleteAlarm(alarm)
+                        }
+                    }
                 }
             }
         }

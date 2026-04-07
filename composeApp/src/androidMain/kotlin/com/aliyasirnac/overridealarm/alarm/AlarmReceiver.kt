@@ -15,6 +15,11 @@ class AlarmReceiver : BroadcastReceiver() {
         val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 5)
         val challengeType = intent.getStringExtra(EXTRA_CHALLENGE_TYPE) ?: "NONE"
         val ringtoneUri = intent.getStringExtra(EXTRA_RINGTONE_URI)
+        val forceSpeaker = intent.getBooleanExtra(EXTRA_FORCE_SPEAKER, true)
+        val flashStrobe = intent.getBooleanExtra(EXTRA_FLASH_STROBE, false)
+        val ttsEnabled = intent.getBooleanExtra(EXTRA_TTS_ENABLED, false)
+        val ttsMessage = intent.getStringExtra(EXTRA_TTS_MESSAGE)
+        val wakeupCheck = intent.getBooleanExtra(EXTRA_WAKEUP_CHECK, false)
 
         val serviceIntent = Intent(context, AlarmService::class.java).apply {
             putExtra(EXTRA_ALARM_ID, alarmId)
@@ -24,6 +29,11 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(EXTRA_SNOOZE_MINUTES, snoozeMinutes)
             putExtra(EXTRA_CHALLENGE_TYPE, challengeType)
             putExtra(EXTRA_RINGTONE_URI, ringtoneUri)
+            putExtra(EXTRA_FORCE_SPEAKER, forceSpeaker)
+            putExtra(EXTRA_FLASH_STROBE, flashStrobe)
+            putExtra(EXTRA_TTS_ENABLED, ttsEnabled)
+            putExtra(EXTRA_TTS_MESSAGE, ttsMessage)
+            putExtra(EXTRA_WAKEUP_CHECK, wakeupCheck)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -41,5 +51,10 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_SNOOZE_MINUTES = "alarm_snooze_minutes"
         const val EXTRA_CHALLENGE_TYPE = "alarm_challenge_type"
         const val EXTRA_RINGTONE_URI = "alarm_ringtone_uri"
+        const val EXTRA_FORCE_SPEAKER = "alarm_force_speaker"
+        const val EXTRA_FLASH_STROBE = "alarm_flash_strobe"
+        const val EXTRA_TTS_ENABLED = "alarm_tts_enabled"
+        const val EXTRA_TTS_MESSAGE = "alarm_tts_message"
+        const val EXTRA_WAKEUP_CHECK = "alarm_wakeup_check"
     }
 }

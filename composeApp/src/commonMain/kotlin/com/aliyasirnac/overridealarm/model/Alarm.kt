@@ -24,7 +24,12 @@ data class Alarm(
     val snoozeMinutes: Int = 5,
     val challengeType: ChallengeType = ChallengeType.NONE,
     val ringtoneUri: String? = null,       // null = system default alarm tone
-    val ringtoneName: String? = null       // display name for the selected tone
+    val ringtoneName: String? = null,      // display name for the selected tone
+    val wakeupCheck: Boolean = false,      // re-trigger alarm 5 min after dismiss if not confirmed
+    val forceSpeaker: Boolean = true,      // bypass headphones, force speaker output
+    val flashStrobe: Boolean = false,      // camera flash strobe effect
+    val ttsEnabled: Boolean = false,       // text-to-speech announcements
+    val ttsMessage: String? = null         // custom TTS message (null = default time announcement)
 )
 
 fun Alarm.formattedTimeParts(): Pair<String, String> {

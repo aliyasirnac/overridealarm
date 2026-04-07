@@ -36,6 +36,11 @@ fun AddAlarmScreen(
     var challengeType by remember { mutableStateOf(existingAlarm?.challengeType ?: ChallengeType.NONE) }
     var ringtoneUri by remember { mutableStateOf(existingAlarm?.ringtoneUri) }
     var ringtoneName by remember { mutableStateOf(existingAlarm?.ringtoneName) }
+    var wakeupCheck by remember { mutableStateOf(existingAlarm?.wakeupCheck ?: false) }
+    var forceSpeaker by remember { mutableStateOf(existingAlarm?.forceSpeaker ?: true) }
+    var flashStrobe by remember { mutableStateOf(existingAlarm?.flashStrobe ?: false) }
+    var ttsEnabled by remember { mutableStateOf(existingAlarm?.ttsEnabled ?: false) }
+    var ttsMessage by remember { mutableStateOf(existingAlarm?.ttsMessage ?: "") }
 
     val timePickerState = rememberTimePickerState(
         initialHour = existingAlarm?.hour ?: 7,
@@ -73,7 +78,12 @@ fun AddAlarmScreen(
                                     isEnabled = existingAlarm?.isEnabled ?: true,
                                     challengeType = challengeType,
                                     ringtoneUri = ringtoneUri,
-                                    ringtoneName = ringtoneName
+                                    ringtoneName = ringtoneName,
+                                    wakeupCheck = wakeupCheck,
+                                    forceSpeaker = forceSpeaker,
+                                    flashStrobe = flashStrobe,
+                                    ttsEnabled = ttsEnabled,
+                                    ttsMessage = ttsMessage.ifBlank { null }
                                 )
                             )
                         },
@@ -281,6 +291,64 @@ fun AddAlarmScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Override Features
+            SectionCard(title = "Override Özellikleri") {
+                OptionRow(
+                    label = "🔊 Kulaklık Bypass",
+                    description = "Kulaklık takılı olsa bile sesi hoparlörden çal",
+                    checked = forceSpeaker,
+                    onCheckedChange = { forceSpeaker = it }
+                )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                OptionRow(
+                    label = "📸 Flaş Strobe",
+                    description = "Alarm çalarken flaş ışığı yanıp sönsün",
+                    checked = flashStrobe,
+                    onCheckedChange = { flashStrobe = it }
+                )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                OptionRow(
+                    label = "🗣️ Sesli Uyarı (TTS)",
+                    description = "Alarm saatini ve mesajı yüksek sesle okusun",
+                    checked = ttsEnabled,
+                    onCheckedChange = { ttsEnabled = it }
+                )
+                if (ttsEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = ttsMessage,
+                        onValueChange = { ttsMessage = it },
+                        label = { Text("TTS Mesajı (isteğe bağlı)") },
+                        placeholder = { Text("örn. Toplantıya geç kalıyorsun!") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                OptionRow(
+                    label = "⏰ Uyanıklık Doğrulaması",
+                    description = "5 dk sonra \"Uyanık mısın?\" sorar, cevap vermezsen alarm tekrar çalar",
+                    checked = wakeupCheck,
+                    onCheckedChange = { wakeupCheck = it }
+                )
+            }
+
             // Override info banner
             Spacer(modifier = Modifier.height(12.dp))
             Surface(
@@ -384,6 +452,7 @@ private fun OptionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

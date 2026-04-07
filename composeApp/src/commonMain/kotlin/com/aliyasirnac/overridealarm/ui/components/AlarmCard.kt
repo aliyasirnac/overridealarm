@@ -17,6 +17,7 @@ import com.aliyasirnac.overridealarm.model.ChallengeType
 import com.aliyasirnac.overridealarm.model.DAY_LABELS
 import com.aliyasirnac.overridealarm.model.formattedTimeParts
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmCard(
     alarm: Alarm,
@@ -38,10 +39,10 @@ fun AlarmCard(
     )
 
     ElevatedCard(
+        onClick = { onEdit() },
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clickable { onEdit() },
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = animatedContainerColor
